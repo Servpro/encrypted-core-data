@@ -910,7 +910,7 @@ static void dbsqliteRegExp(sqlite3_context *context, int argc, const char **argv
 
 - (BOOL)migrateFromModel:(NSManagedObjectModel *)fromModel toModel:(NSManagedObjectModel *)toModel error:(NSError **)error {
     BOOL __block success = YES;
-    
+
     // generate mapping model
     NSMappingModel *mappingModel = [NSMappingModel
                                     inferredMappingModelForSourceModel:fromModel
@@ -922,6 +922,7 @@ static void dbsqliteRegExp(sqlite3_context *context, int argc, const char **argv
     NSDictionary *sourceEntities = [fromModel entitiesByName];
     NSDictionary *destinationEntities = [toModel entitiesByName];
     
+    NSArray *entities = [self storeEntities];
     // enumerate over entities
     [[mappingModel entityMappings] enumerateObjectsUsingBlock:^(NSEntityMapping *entityMapping, NSUInteger idx, BOOL *stop) {
         
@@ -936,29 +937,38 @@ static void dbsqliteRegExp(sqlite3_context *context, int argc, const char **argv
         // get mapping type
         NSEntityMappingType type = [entityMapping mappingType];
         
+        __block BOOL destinationEntityIsInMyStore = NO;
+        [entities enumerateObjectsUsingBlock:^(NSEntityDescription *  _Nonnull obj, NSUInteger idx, BOOL * _Nonnull stop) {
+            if([obj.name isEqualToString:destinationEntity]) {
+                destinationEntityIsInMyStore = *stop = YES;
+            }
+        }];
+        
         // add a new entity from final snapshot
-        if (type == NSAddEntityMappingType) {
-            success &= [self createTableForEntity:destinationEntity error:error];
-        }
+        if (destinationEntityIsInMyStore == YES) {
+            if (type == NSAddEntityMappingType) {
+                success &= [self createTableForEntity:destinationEntity error:error];
+            }
         
-        // drop table for deleted entity
-        else if (type == NSRemoveEntityMappingType) {
-            success &= [self dropTableForEntity:sourceEntity];
-        }
+            // drop table for deleted entity
+            else if (type == NSRemoveEntityMappingType) {
+                success &= [self dropTableForEntity:sourceEntity];
+            }
         
-        // change an entity
-        else if (type == NSTransformEntityMappingType) {
-            success &= [self
+            // change an entity
+            else if (type == NSTransformEntityMappingType) {
+                success &= [self
                         alterTableForSourceEntity:sourceEntity
                         destinationEntity:destinationEntity
                         withMapping:entityMapping
                         error:error];
-            if (success)
-            {
-                success &= [self alterRelationshipForSourceEntity:sourceEntity
+                if (success)
+                {
+                    success &= [self alterRelationshipForSourceEntity:sourceEntity
                                                 destinationEntity:destinationEntity
                                                       withMapping:entityMapping
                                                             error:error];
+                }
             }
         }
     }];
