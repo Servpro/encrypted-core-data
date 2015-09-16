@@ -939,7 +939,7 @@ static void dbsqliteRegExp(sqlite3_context *context, int argc, const char **argv
         
         __block BOOL destinationEntityIsInMyStore = NO;
         [entities enumerateObjectsUsingBlock:^(NSEntityDescription *  _Nonnull obj, NSUInteger idx, BOOL * _Nonnull stop) {
-            if([obj.name isEqualToString:destinationEntity]) {
+            if([obj.name isEqualToString:destinationEntity.name]) {
                 destinationEntityIsInMyStore = *stop = YES;
             }
         }];
